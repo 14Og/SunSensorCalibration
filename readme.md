@@ -1,1 +1,1 @@
-#standLogParser script for CubeSat stand project
+# standLogParser script for CubeSat stand project
