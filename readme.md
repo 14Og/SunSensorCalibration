@@ -1,0 +1,1 @@
+#standLogParser script for CubeSat stand project
