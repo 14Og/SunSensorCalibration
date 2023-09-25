@@ -15,18 +15,17 @@ def ParseAndCopy(input_file_path, output_file_path = "standlog.txt") -> None:
     as input_file, open(output_file_path, "w+") as new_file:
         all_lines = input_file.readlines()
         angles = all_lines[4: -1: 5]
-        # adc0 = all_lines[5: -1: 5]
-        # adc1 = all_lines[6: -1: 5]
-        # adc2 = all_lines[7: -1: 5]
-        # adc3 = all_lines[8: -1: 5]
-
+        # adc0 = all_lines[0: -1: 5]
+        # adc1 = all_lines[1: -1: 5]
+        # adc2 = all_lines[2: -1: 5]
+        # adc3 = all_lines[3: -1: 5]
 
         angles = [re.findall(r"[+-]?\d+(?:\.\d+)?", string) for string in angles]
         for channel in range(4):
 
             new_file.write(f"Data_{channel} = [")
 
-            for line, adc  in zip(angles, all_lines[5+channel: -1: 5]):
+            for line, adc  in zip(angles, all_lines[0+channel: -1: 5]):
 
                 new_file.write(line[0] + " ")
                 new_file.write(line[1] + " ")
