@@ -16,12 +16,12 @@ with  open("/home/nikolai/projects/pypon/standLogParser/coordinateXLog.bin", "r+
 
 
     x_list = [[str(round(float(x_lines[i][0]),5)), str(round(float(y_lines[i][0]),5)) \
-               , y_lines[i][1], y_lines[i][2]] for i in range(len(y_lines))]
+               , y_lines[i][1]] for i in range(len(y_lines))]
     x_list.sort(key = lambda x: float(x[:][0]))
 
 
     y_list = [[str(round(float(x_lines[i][0]),5)), str(round(float(y_lines[i][0]),5)) \
-               , y_lines[i][1], y_lines[i][2]] for i in range(len(y_lines))]
+               , y_lines[i][2]] for i in range(len(y_lines))]
     y_list.sort(key = lambda x: float(x[:][1]))
 
 
@@ -30,16 +30,16 @@ with  open("/home/nikolai/projects/pypon/standLogParser/coordinateXLog.bin", "r+
     for vector in x_list:
         new_file.write(vector[0] + " ")
         new_file.write(vector[1] + " ")
-        new_file.write(vector[2] + " ")
-        new_file.write(vector[3] + ";\n")
-    new_file.write("]\n")
+        new_file.write(vector[2] + ";\n")
+
+    new_file.write("]\n\n")
 
     new_file.write("y_inc = [")
     for vector in y_list:
         new_file.write(vector[0] + " ")
         new_file.write(vector[1] + " ")
-        new_file.write(vector[2] + " ")
-        new_file.write(vector[3] + ";\n")
+        new_file.write(vector[2] + ";\n")
+
     new_file.write("]\n")
 
     
