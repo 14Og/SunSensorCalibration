@@ -7,7 +7,7 @@ with  open("/home/nikolai/projects/pypon/standLogParser/coordinateXLog.bin", "r+
     x_lines[0] = x_lines[0][11::]
     x_lines = [s.split(" ") for s in x_lines]
     x_lines = x_lines[:-1]
-
+    print(x_lines)
 
     y_lines = [line[:-2:] for line in y_file.readlines()]
     y_lines[0] = y_lines[0][11::]

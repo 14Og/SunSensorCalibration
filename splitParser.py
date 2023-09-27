@@ -8,13 +8,13 @@ with  open("coordinateXLog.bin", "r+") as x_file, \
 
 
         x_lines = [line[:-2:] for line in x_file.readlines()]
-        x_lines[0] = x_lines[0][11::]
+        x_lines[0] = x_lines[0][10::]
         x_lines = [s.split(" ") for s in x_lines]
         x_lines = x_lines[:-1]
 
 
         y_lines = [line[:-2:] for line in y_file.readlines()]
-        y_lines[0] = y_lines[0][11::]
+        y_lines[0] = y_lines[0][10::]
         y_lines = [s.split(" ") for s in y_lines]
         y_lines = y_lines[:-1]
 
@@ -38,7 +38,7 @@ with  open("coordinateXLog.bin", "r+") as x_file, \
         az_inc_0_180 = az_inc[:lst_az]
         az_inc_180_360 = az_inc[lst_az:]
         el_inc_min_0 = el_inc[:lst_el]
-        el_inc_0_max = el_inc[lst_el:]
+        el_inc_0_max = el_inc[::]
 
         if __name__ == "__main__":
              
