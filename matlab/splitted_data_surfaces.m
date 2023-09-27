@@ -22,9 +22,11 @@ y4 = el_inc_0_max(:,2);
 z4 = el_inc_0_max(:,3);
 
 curveFitter(x1,y1,z1);
-curveFitter(x2,y2,z2);
-curveFitter(x3,y3,z3);
+% curveFitter(x2,y2,z2);
+% curveFitter(x3,y3,z3);
 curveFitter(x4,y4,z4);
 % curveFitter("matlab\figures\4_surfaces_curveFitter.sfit");
+plot3(x1,y1,z1,'-o','Color','b','MarkerSize',10,...
+    'MarkerFaceColor','#D9FFFF');
 
 
