@@ -55,6 +55,7 @@ class Datamodel:
     def calculate_azimuth(self, dataframe: list) -> list:
         x = dataframe[0]
         y = dataframe[1]
+        th_az = dataframe[2]
 
         azimuth =  -atan(y/x) if x > 0 and y < 0 else \
               -atan(y/x) + pi if x < 0 and y < 0 else \
@@ -63,9 +64,23 @@ class Datamodel:
         azimuth = degrees(azimuth) 
 
         dataframe.append(azimuth)
-        dataframe.append(abs(azimuth-dataframe[2]))
+        dataframe.append(abs(azimuth-th_az))
 
         return dataframe
+    
+    def save_azimuth_error(self, data : dict,  tresh = 0, path_to_save = "matlab/data") -> None:
+        with open(path_to_save + "/azimuth_error.txt", "w") as er_file:
+            for key in data:
+                for line in data[key]:
+                    x = line[0]
+                    y = line[1]
+                    if (x**2 + y**2)**0.5 >= tresh:
+                        er_file.write(str(self.calculate_azimuth(line)[-3]) + " ")
+                        er_file.write(str(self.calculate_azimuth(line)[-1]) + "\n")
+            er_file.close()
+
+                    
+                    
     
     def save_matlab_data(self, angles = "spherical", path_to_save = "matlab/data"):
 
@@ -87,15 +102,12 @@ class Datamodel:
                       
 
 
+if __name__ == "__main__":
 
-
-test = Datamodel()
-segments = test.create_segmented_azimuth_data()
-test.save_matlab_data()
-# for frame in segments:
-#      for data in segments[frame]:
-#         modified_frame = test.calculate_azimuth(data)
-#         print(f"{modified_frame[-1]} {modified_frame[-2]};")
+    test = Datamodel()
+    segments = test.create_segmented_azimuth_data()
+    test.save_matlab_data()
+    test.save_azimuth_error(segments, tresh=0.05)
 
 
 

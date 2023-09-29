@@ -1,17 +1,23 @@
 az = readmatrix("matlab/data/azimuth.txt");
 el = readmatrix("matlab/data/elevation.txt");
+az_err = readmatrix("matlab/data/azimuth_error.txt");
 
 
-x1 = az(:,1);
-y1 = az(:,2);
-z1 = az(:,3);
 
-x2 = el(:,1);
-y2 = el(:,2);
-z2 = el(:,3);
+x_az = az(:,1);
+y_az = az(:,2);
+z_az = az(:,3);
 
-curveFitter(x1,y1,z1);
-curveFitter(x2,y2,z2);
+x_el = el(:,1);
+y_el = el(:,2);
+z_el = el(:,3);
+
+x_az_er = az_err(:,1);
+y_az_er = az_err(:,2);
+
+% curveFitter(x_az,y_az,z_az);
+% curveFitter(x_el,y_el,z_el);
+plot(x_az_er, y_az_er, "o", "MarkerSize", 5);
 % curveFitter(x3,y3,z3);
 % curveFitter(x4,y4,z4);
 % plot3(x2,y2,z2,'-o','Color','b','MarkerSize',10,...
