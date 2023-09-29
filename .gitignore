@@ -1,3 +1,5 @@
 .venv/
 .vscode/
 standLogParser.py
+splitParser.py
+spliting_logs_output/

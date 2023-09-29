@@ -42,7 +42,6 @@ with  open("coordinateXLog.bin", "r+") as x_file, \
               
               
         
-
         az_inc_0_180 = az_inc[::]
         az_inc_180_360 = az_inc[lst_az:]
         el_inc_min_0 = el_inc[:lst_el]
