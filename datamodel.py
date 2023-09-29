@@ -103,7 +103,6 @@ class Datamodel:
 
 
 if __name__ == "__main__":
-
     test = Datamodel()
     segments = test.create_segmented_azimuth_data()
     test.save_matlab_data()
