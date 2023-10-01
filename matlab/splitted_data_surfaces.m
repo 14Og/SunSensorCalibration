@@ -15,12 +15,12 @@ z_el = el(:,3);
 x_az_er = az_err(:,1);
 y_az_er = az_err(:,2);
 
-% curveFitter(x_az,y_az,z_az);
+curveFitter(x_az,y_az,z_az);
 % curveFitter(x_el,y_el,z_el);
 % plot(x_az_er, y_az_er, "o", "MarkerSize", 5);
 % curveFitter(x3,y3,z3);
 % curveFitter(x4,y4,z4);
-plot3(x2,y2,z2,'-o','Color','b','MarkerSize',5,...
+plot3(x_az,y_az,z_az,'-o','Color','b','MarkerSize',5,...
     'MarkerFaceColor','#D9FFFF');
 
 % curveFitter(x4,y4,z4);
