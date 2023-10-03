@@ -40,7 +40,14 @@ class Datamodel:
         return lines
     
 
-    def create_segmented_azimuth_data(self) -> dict:
+
+    def __radius_calculate(self, dataframe: list) -> float:
+        x_coord = dataframe[0]
+        y_coord = dataframe[1]
+        r = (x_coord**2 + y_coord**2)**0.5
+        return r
+
+    def create_segmented_azimuth_data(self, tresh = 0) -> dict:
         segmented_azimuth_data  = dict()
         az_keys = ["0-20", "20-40", "40-60", "60-80",
                   "80-100", "100-120", "120-140", "140-160",
@@ -52,20 +59,22 @@ class Datamodel:
 
         for angle in range(1,19):
                 while self.azimuth_lines[line][2] <= angle * 20:
-                    segmented_azimuth_data[az_keys[angle-1]] = \
-                    np.append(segmented_azimuth_data[az_keys[angle-1]], [self.azimuth_lines[line]], axis=0)
-                    if self.azimuth_lines[line][2] == angle * 20 and angle != 12:
-                        segmented_azimuth_data[az_keys[angle]] = \
-                        np.append(segmented_azimuth_data[az_keys[angle]], [self.azimuth_lines[line]], axis=0)
+                    radius = self.__radius_calculate(list(self.azimuth_lines[line]))
+                    if radius > tresh:
+                        segmented_azimuth_data[az_keys[angle-1]] = \
+                        np.append(segmented_azimuth_data[az_keys[angle-1]], [self.azimuth_lines[line]], axis=0)
+                        if self.azimuth_lines[line][2] == angle * 20 and angle != 12:
+                            segmented_azimuth_data[az_keys[angle]] = \
+                            np.append(segmented_azimuth_data[az_keys[angle]], [self.azimuth_lines[line]], axis=0)
                     line += 1
                     if line == len(self.azimuth_lines):
                          break
                 lst = list(map(list,segmented_azimuth_data[az_keys[angle-1]]))
-                lst.sort(key=lambda x: (x[:][0]**2 + x[:][1]**2)**0.5)
+                lst.sort(key=lambda x: self.__radius_calculate(x[:]))
                 segmented_azimuth_data[az_keys[angle-1]] = np.array(lst)
                 
                     
-        print(segmented_azimuth_data)       
+        # print(segmented_azimuth_data)       
         return segmented_azimuth_data
 
 
@@ -99,14 +108,13 @@ class Datamodel:
                     
                     
     
-    def save_matlab_data(self, angles = "spherical", path_to_save = "matlab/data"):
-
+    def save_matlab_data(self, az_source, el_source, angles = "spherical", path_to_save = "matlab/data"):
         with open(path_to_save + "/azimuth.txt", "w") as az_file, open(path_to_save + "/elevation.txt", "w") as el_file:
-            for az_line in self.azimuth_lines if angles == "spherical" else self.cartesian(self.azimuth_lines):
+            for az_line in az_source if angles == "spherical" else self.cartesian(self.azimuth_lines):
                 for val in az_line:
                     az_file.write(str(val) + " ")
                 az_file.write("\n")
-            for el_line in self.elevation_lines if angles == "spherical" else self.cartesian(self.elevation_lines):
+            for el_line in el_source if angles == "spherical" else self.cartesian(self.elevation_lines):
                 for val in el_line:
                     el_file.write(str(val) + " ")
                 el_file.write("\n")
@@ -121,8 +129,10 @@ class Datamodel:
 
 if __name__ == "__main__":
     test = Datamodel()
-    segments = test.create_segmented_azimuth_data()
-    test.save_matlab_data()
+    segments = test.create_segmented_azimuth_data(tresh=0.1)
+    test.save_matlab_data(az_source=list(test.azimuth_lines), el_source=test.elevation_lines)
+    print(test.azimuth_lines)
+    print(list(map(list,segments.values())))
     test.save_azimuth_error(segments, tresh=0.05)
 
 
