@@ -1,21 +1,31 @@
 import matplotlib.pyplot as plt
-
+from matplotlib.patches import Circle
+import pandas as pd
 import numpy as np
 import math
-import math
+from typing import List, Tuple
+from itertools import cycle
+from skimage.measure import CircleModel
+from scipy.interpolate import griddata, interp2d
+
+from log_processor import LogProcessor
 
 
-ax = plt.gca()
-ax.set_aspect('equal', adjustable = 'box')
-
+#TODO: creation of calibration yaml file for stand
 
 class Calibration:
+    
+    colors =  [(i/700, 1 - (i+300)/700, i/500) for i in range(400)]
+
+
     def __init__(self, azimuth_scope:list = [-45, 45], elevation_scope:list = [0, 360]):
-        az_num = (azimuth_scope[1] - azimuth_scope[0]) // 5 + 1
-        el_num = (elevation_scope[1] - elevation_scope[0]) // 5
+        self.log_processor = LogProcessor("calibration_data", filename="merged_data.yaml")
         
-        self.az_range = np.linspace(azimuth_scope[0], azimuth_scope[1], az_num)
-        self.el_range = np.linspace(elevation_scope[0], elevation_scope[1], el_num, endpoint=False)
+        az_num:int = (azimuth_scope[1] - azimuth_scope[0]) // 5 + 1
+        el_num:int = (elevation_scope[1] - elevation_scope[0]) // 5
+        
+        self.az_range:np.ndarray = np.linspace(azimuth_scope[0], azimuth_scope[1], az_num)
+        self.el_range:np.ndarray = np.linspace(elevation_scope[0], elevation_scope[1], el_num, endpoint=False)
         self.spherical_sample_space, self.az_grid, self.el_grid = \
         Calibration.get_sample_space(self.az_range, self.el_range)
                 
@@ -26,7 +36,8 @@ class Calibration:
 
         self.create_stand_calibration_data(self.cartesian_sample_space)
     
-    def create_stand_calibration_data(self, cartesian_sample_space:list[tuple[float,float]], output:str = "calibration.yaml") -> list[tuple[float, float]]:
+    def create_stand_calibration_data(self, cartesian_sample_space:list[tuple[float,float]], output:str = "calibration.yaml") \
+        -> list[tuple[float, float]]:
         radius = math.cos(math.pi/4)
         new_space = []
         for pair in cartesian_sample_space:
@@ -41,12 +52,7 @@ class Calibration:
                 
         new_space.sort(key=lambda h: (h[0], h[1]))
         
-        
-        
-            
-        
-        
-    
+ 
     @staticmethod 
     def get_sample_space(range1:np.ndarray, range2:np.ndarray) -> tuple: # sample_space, grid1, grid2
         grid1, grid2 = np.meshgrid(range1, range2)
@@ -72,9 +78,66 @@ class Calibration:
         return y_range, y_all
         
 
-    def plot(self, xv, yv):
-            plt.plot(xv, yv, marker="o", color="k", markersize=3, linewidth=0)
-            plt.show()
+    def plot_stand_data(self, data:pd.DataFrame = None) -> None:
+        
+        angles = data.loc[:, "elevation":"azimuth"].apply(np.radians)
+        X = np.multiply(np.sin(angles.loc[:, "elevation"]), np.cos(angles.loc[:, "azimuth"]))
+        Y = np.multiply(np.sin(angles.loc[:, "elevation"]), np.sin(angles.loc[:, "azimuth"]))
+        
+        new_frame = pd.DataFrame({"X":X, "Y":Y, "x_light": data.loc[:, "x"], "y_light": data.loc[:, "y"]})
+
+        fig, (stand, light) = plt.subplots(1,2)
+        stand.set_aspect('equal', adjustable = 'box')
+        light.set_aspect('equal', adjustable = 'box')
+        color_gen = Calibration.color()
+        for i in range (data.shape[0]):
+            c = next(color_gen)
+            stand.scatter(new_frame.loc[i, "X"], new_frame.loc[i, "Y"], color = c)
+            light.scatter(new_frame.loc[i, "x_light"], new_frame.loc[i, "y_light"], color = c)
+        
+        xc, yc, r = self.calculate_light_shape()
+        light.add_patch(Circle((xc, yc), r, fill=False, color="red"))
+        self.calibrate(new_frame, (xc,yc,r))
+        plt.show()
+    
+      
+      
+    def calculate_light_shape(self, last_points_included=50) -> Tuple[float, float, float]:  # xc, yc, radius of estimated circle
+        light_shape = CircleModel()
+        success = light_shape.estimate(self.log_processor.df.loc[self.log_processor.measurements_count-last_points_included:, "x":"y"].to_numpy())
+        if not success:
+            raise Exception("Could not fit circle to light sensor data")
+        
+        return light_shape.params
+        
+          
+    def calibrate(self, new_dataframe:pd.DataFrame, light_circle_shape:Tuple[float, float, float]) -> bool:
+        xc, yc, r = light_circle_shape
+        
+        x_lin = np.linspace(xc-r, xc+r, 30)
+        y_lin = np.linspace(yc-r, yc+r, 30)
+        
+        x_grid, y_grid = np.meshgrid(x_lin, y_lin)
+        calibration_grid = np.column_stack((x_grid.ravel(), y_grid.ravel()))
+        calibration_grid = tuple(filter(lambda pair: (pair[0] - xc)**2 + (pair[1] - yc)**2 < r**2, calibration_grid))
+        print(calibration_grid)
+        
+        
+        x_points = new_dataframe.loc[:, "x_light"].to_numpy()
+        y_points = new_dataframe.loc[:, "y_light"].to_numpy()
+        x_values = new_dataframe.loc[: , "X"]
+        y_values = new_dataframe.loc[: , "X"]
+        X = interp2d(x_points, y_points, x_values)
+        Y = interp2d(x_points, y_points, y_values)
+        # print(X)
+
+
+    @classmethod 
+    def color(cls):
+        for color in cls.colors:
+            yield color
+            
+        
     
     
         
@@ -83,3 +146,5 @@ class Calibration:
 
 if __name__ == "__main__":
     c = Calibration()
+    logs = LogProcessor("calibration_data", filename="merged_data.yaml")
+    c.plot_stand_data(c.log_processor.df)
