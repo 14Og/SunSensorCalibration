@@ -10,6 +10,7 @@ from scipy.interpolate import LinearNDInterpolator
 from collections import namedtuple
 from log_processor import LogProcessor
 from mpl_toolkits.mplot3d import Axes3D
+from typing import Callable
 
 #TODO: creation of calibration yaml file for stand
 #TODO: interpolation/calibration error check
@@ -89,6 +90,19 @@ class Postprocessor:
         
     
     def process_stand_data(self, raw_data:pd.DataFrame) -> pd.DataFrame:
+        """
+        Processing given data from stand.
+        
+        Pass raw calibration data in form of pandas dataframe with 4 columns: Azimuth, Elevation, x_light, y_light
+
+        Parameters:
+        ----------
+        raw_data (pd.DataFrame): raw dataframe from stand YAML file processed by log processor
+    
+        Returns:
+        ----------
+        new_frame (pd.DataFrame): new dataframe with reformatted data (Azimuth , Elevation -> X_vector, Y_vector)
+        """
         angles = raw_data.loc[:, "elevation":"azimuth"].apply(np.radians)
         X = np.multiply(np.sin(angles.loc[:, "elevation"]), np.cos(angles.loc[:, "azimuth"]))
         Y = np.multiply(np.sin(angles.loc[:, "elevation"]), np.sin(angles.loc[:, "azimuth"]))
@@ -116,16 +130,28 @@ class Calibration:
     def __init__(self, preparator:Preparator, postprocessor:Postprocessor) -> None:
         self.preparator = preparator
         self.postprocessor = postprocessor
-        self.calibrated_sun_vector:np.ndarray = None
-        self.calibrated_sensor_data:np.ndarray = None
+        
+        self.calibrated_sun_vector:np.ndarray = None  # final dataset of calibrated X and Y coordinates of sun vector
+        self.calibrated_frame:pd.DataFrame = None  # final dataframe of calibrated values. Has the same signature as postprocessor.calibration_data
+        self.calibration_sensor_data:np.ndarray = None  # final dataset of calibration grid for sun sensor measurements
+        self.X_interpolator:Callable = None  # interpolator for X coordinate of sunvector
+        self.Y_interpolator:Callable = None  # interpolator for Y coordinate of sunvector
     
+    
+        self.x_mse:float = None
+        self.y_mse:float = None
+        self.squared_error = None 
+        self.error:pd.DataFrame = None  # [interpolated x : interpolated y : x error : y error] dataframe
+
+
     
     def emit(self):
         self.calibrate(self.postprocessor.calibration_data, self.postprocessor.light_shape_params)
         self.plot_calibration_data()
         self.plot_calibrated_data()
-        
-        
+        self.calculate_mse()
+        self.plot_mse()
+
 
     def plot_calibration_data(self) -> None:
         fig, subplots = plt.subplots(2,2)
@@ -170,7 +196,7 @@ class Calibration:
         for i in range (self.calibrated_sun_vector.shape[0]):
             c = next(color_gen)
             sunvector.scatter(self.calibrated_sun_vector[i, 0], self.calibrated_sun_vector[i, 1], color=c)
-            light.scatter(self.calibrated_sensor_data[i, 0], self.calibrated_sensor_data[i, 1], color=c)
+            light.scatter(self.calibration_sensor_data[i, 0], self.calibration_sensor_data[i, 1], color=c)
         
         X = fig.add_subplot(223, projection="3d")
         X.title.set_text("X coordinate of sunvector")
@@ -181,13 +207,26 @@ class Calibration:
         X.set_ylabel("y_light")
         Y.set_ylabel("y_light")
 
-        X.scatter(self.calibrated_sensor_data[:, 0], self.calibrated_sensor_data[:, 1], self.calibrated_sun_vector[:, 0], c="green")    
-        Y.scatter(self.calibrated_sensor_data[:, 0], self.calibrated_sensor_data[:, 1], self.calibrated_sun_vector[:, 1], c="black")    
+        X.scatter(self.calibration_sensor_data[:, 0], self.calibration_sensor_data[:, 1], self.calibrated_sun_vector[:, 0], c="green")    
+        Y.scatter(self.calibration_sensor_data[:, 0], self.calibration_sensor_data[:, 1], self.calibrated_sun_vector[:, 1], c="black")    
         
         plt.show()
 
 
-    def calibrate(self, new_dataframe:pd.DataFrame, light_circle_shape:Tuple[float, float, float]) -> bool:
+    def calibrate(self, new_dataframe:pd.DataFrame, light_circle_shape:Tuple[float, float, float]) -> None:
+        """
+        Performs calibration process with given reformatted dataframe.
+
+        This method creates calibration grid inside of sun sensor FOV scope (judged by raw measurements).
+        Then creates 2 callable interpolator objects for X and Y coordinates of sun vector.
+        Finally, this method performs a calibration process with created grid and fills final data field of Calibration class.
+        
+        Parameters:
+        ----------
+        new_dataframe (pd.DataFrame): reformatted dataframe by Postprocessor class.
+        light_circle_shape (tuple): tuple with sun sensor FOV (xc, yc, r). Judged by raw data measurements.
+
+        """
         xc, yc, r = light_circle_shape
         
         x_lin = np.linspace(xc-r, xc+r, 30)
@@ -197,20 +236,64 @@ class Calibration:
         calibration_grid = np.column_stack((x_grid.ravel(), y_grid.ravel()))
         calibration_grid = np.array(list(filter(lambda pair: (pair[0] - xc)**2 + (pair[1] - yc)**2 < r**2, calibration_grid)))
 
-        self.calibrated_sensor_data = calibration_grid
+
+        self.calibration_sensor_data = calibration_grid
 
         x_l_points = new_dataframe.loc[:, "x_light"].to_numpy()
         y_l_points = new_dataframe.loc[:, "y_light"].to_numpy()
         x_values = new_dataframe.loc[: , "X"]
         y_values = new_dataframe.loc[: , "Y"]
         
-        X_interpolator = LinearNDInterpolator(list(zip(x_l_points, y_l_points)), x_values)
-        Y_interpolator = LinearNDInterpolator(list(zip(x_l_points, y_l_points)), y_values)
+        self.X_interpolator = LinearNDInterpolator(list(zip(x_l_points, y_l_points)), x_values)
+        self.Y_interpolator = LinearNDInterpolator(list(zip(x_l_points, y_l_points)), y_values)
         
-        self.calibrated_sun_vector = np.stack((X_interpolator(calibration_grid[:,0], \
-        calibration_grid[:,1]), Y_interpolator(calibration_grid[:,0], calibration_grid[:,1])), axis=1)
-  
+        self.calibrated_sun_vector = np.stack((self.X_interpolator(calibration_grid[:,0], \
+        calibration_grid[:,1]), self.Y_interpolator(calibration_grid[:,0], calibration_grid[:,1])), axis=1)
+        
+        self.calibrated_frame = pd.DataFrame({"X":self.X_interpolator(calibration_grid[:,0], calibration_grid[:,1]), \
+                                     "Y":self.Y_interpolator(calibration_grid[:,0], calibration_grid[:,1]),
+                                     "x_light":calibration_grid[:,0], "y_light":calibration_grid[:,1]})
 
+    
+    def calculate_mse(self):
+        pred_data = self.postprocessor.calibration_data.loc[:, "X":"Y"]
+        act_data = pd.DataFrame({"X": self.X_interpolator(self.postprocessor.calibration_data["x_light"], self.postprocessor.calibration_data["y_light"]), \
+                      "Y": self.Y_interpolator(self.postprocessor.calibration_data["x_light"], self.postprocessor.calibration_data["y_light"])})
+        
+        self.x_mse = np.array((pred_data.to_numpy()[:,0] - act_data.to_numpy()[:,0])**2).mean()
+        self.y_mse = np.array((pred_data.to_numpy()[:,1] - act_data.to_numpy()[:,1])**2).mean()
+        self.error = np.array((pred_data.to_numpy()-act_data.to_numpy()))
+        self.squared_error = np.square(self.error)
+        
+        act_data = act_data.assign(X_error=self.error[:, 0])
+        act_data = act_data.assign(Y_error=self.error[:, 1])
+        self.error = act_data
+
+
+        
+    def plot_mse(self):
+        measurements = self.error.shape[0]
+        fig, (x_plot, y_plot) = plt.subplots(1,2, figsize=(10,5))
+        
+        x_plot.scatter(self.error["X"], self.error["X_error"], marker=".", color="black")
+        x_plot.axhline(math.sqrt(self.x_mse), color = "red", label="sigma (СКО)")
+        x_plot.axhline(-math.sqrt(self.x_mse), color = "red")
+        x_plot.set_title("X vector mse evaluation")
+        x_plot.set_xlabel("interpolated X vector coordinate")
+        x_plot.set_ylabel("Error")
+        
+        y_plot.scatter(self.error["Y"], self.error["Y_error"], marker=".", color="black")
+        y_plot.axhline(-math.sqrt(self.y_mse), color = "red")
+        y_plot.axhline(math.sqrt(self.x_mse), color = "red")
+        y_plot.set_title("Y vector mse evaluation")
+        y_plot.set_xlabel("interpolated Y vector coordinate")
+        y_plot.set_ylabel("Error")
+
+        fig.legend()
+        plt.show()
+        
+
+    
     @classmethod 
     def color(cls, i):
         colors = cls.colors(i)
