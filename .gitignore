@@ -4,3 +4,4 @@ standLogParser.py
 splitParser.py
 AzElparser.py
 spliting_logs_output/
+__pycache__/

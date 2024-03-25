@@ -3,14 +3,14 @@ from matplotlib.patches import Circle
 import pandas as pd
 import numpy as np
 import math
-from typing import List, Tuple
+from typing import List, Tuple, Callable
 from itertools import cycle
 from skimage.measure import CircleModel
 from scipy.interpolate import LinearNDInterpolator
 from collections import namedtuple
 from log_processor import LogProcessor
 from mpl_toolkits.mplot3d import Axes3D
-from typing import Callable
+
 
 #TODO: creation of calibration yaml file for stand
 #TODO: interpolation/calibration error check
